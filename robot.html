@@ -22,6 +22,25 @@
     button:disabled {
       background-color: #aaa;
     }
+    /* Hide short labels by default (desktop view) */
+    .label-short {
+      display: none;
+    }
+
+    /* Responsive breakpoint for small screens */
+    @media (max-width: 600px) {
+      .label-full {
+        display: none;
+      }
+      .label-short {
+        display: inline;
+        font-size: 1.5em;
+      }
+      button {
+        padding: 10px 14px;
+        min-width: 50px;
+      }
+    }
   </style>
 </head>
 <body>
@@ -30,14 +49,37 @@
   <button id="connect" onclick="connectRequest()">🔗 Connect</button>
   <p id="status">Not connected</p>
   <div id="controls" style="display:block;">
-    <button onclick="sendCommand('f')">⬆️ Forward</button><br>
-    <button onclick="sendCommand('l')">CCW ↪️</button>
-    <button onclick="sendCommand('s')">🛑 Stop</button>
-    <button onclick="sendCommand('r')">↩️ CW</button><br>
-    <button onclick="sendCommand('b')">⬇️ Back</button><br><br>
-    <button onclick="sendCommand('e')">👀 Look Up</button>
-    <button onclick="sendCommand('w')">👋 Wave</button>
-    <button onclick="sendCommand('p')">🎃 Pumpkin</button>
+    <button onclick="sendCommand('f')">
+      <span class="label-full">Forward ⬆️</span>
+      <span class="label-short">⬆️</span>
+    </button><br>
+    <button onclick="sendCommand('l')">
+      <span class="label-full">CCW ↪️</span>
+      <span class="label-short">↪️</span>
+    </button>
+    <button onclick="sendCommand('s')">
+      <span class="label-full">🛑 Stop</span>
+      <span class="label-short">🛑</span>
+    <button onclick="sendCommand('r')">
+      <span class="label-full">↩️ CW</span>
+      <span class="label-short">↩️</span>
+    </button><br>
+    <button onclick="sendCommand('b')">
+      <span class="label-full">⬇️ Back</span>
+      <span class="label-short">⬇️</span>
+    </button><br><br>
+    <button onclick="sendCommand('e')">
+      <span class="label-full">👀 Look</span>
+      <span class="label-short">👀</span>
+    </button>
+    <button onclick="sendCommand('w')">
+      <span class="label-full">👋 Wave</span>
+      <span class="label-short">👋</span>
+    </button>
+    <button onclick="sendCommand('p')">
+      <span class="label-full">🎃 Pumpkin</span>
+      <span class="label-short">🎃</span>
+    </button>
   </div>
 
   <script>
