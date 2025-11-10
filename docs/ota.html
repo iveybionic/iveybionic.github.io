@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Robot OTA Uploader</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      background: #111;
+      color: #eee;
+      text-align: center;
+      padding: 2em;
+    }
+    button, input[type=file] {
+      margin: 0.5em;
+      padding: 0.6em 1.2em;
+      font-size: 1em;
+      border-radius: 0.4em;
+      border: none;
+      cursor: pointer;
+    }
+    button {
+      background: #2b8;
+      color: white;
+    }
+    button:disabled {
+      background: #555;
+      cursor: not-allowed;
+    }
+    progress {
+      width: 80%;
+      margin: 1em 0;
+    }
+    #status {
+      margin-top: 1em;
+      font-family: monospace;
+    }
+  </style>
+</head>
+<body>
+  <h1>Robot OTA Update</h1>
+  <p>1️⃣ Connect to your robot → 2️⃣ Choose firmware → 3️⃣ Upload</p>
+
+  <button id="connectBtn">🔗 Connect</button>
+  <input type="file" id="firmwareFile" accept=".bin,.hex" disabled />
+  <button id="uploadBtn" disabled>⬆️ Upload</button>
+
+  <progress id="progressBar" value="0" max="100"></progress>
+  <div id="status">Status: idle</div>
+
+  <script>
+    let otaCharacteristic = null;
+    const OTA_SERVICE_UUID = '0000abcd-0000-1000-8000-00805f9b34fb'; // 🔧 Replace with your service UUID
+    const OTA_CHAR_UUID = '00001234-0000-1000-8000-00805f9b34fb';    // 🔧 Replace with your characteristic UUID
+    const CHUNK_SIZE = 128; // adjust to robot’s buffer limit
+
+    const statusEl = document.getElementById('status');
+    const connectBtn = document.getElementById('connectBtn');
+    const fileInput = document.getElementById('firmwareFile');
+    const uploadBtn = document.getElementById('uploadBtn');
+    const progressBar = document.getElementById('progressBar');
+
+    function log(msg) {
+      console.log(msg);
+      statusEl.textContent = 'Status: ' + msg;
+    }
+
+    // ---- Step 1: Connect to robot ----
+    connectBtn.onclick = async () => {
+      try {
+        log('Requesting Bluetooth device...');
+        const device = await navigator.bluetooth.requestDevice({
+          filters: [{ services: [OTA_SERVICE_UUID] }]
+        });
+        log('Connecting to GATT server...');
+        const server = await device.gatt.connect();
+        log('Getting OTA service...');
+        const service = await server.getPrimaryService(OTA_SERVICE_UUID);
+        log('Getting OTA characteristic...');
+        otaCharacteristic = await service.getCharacteristic(OTA_CHAR_UUID);
+        log('Connected. Select a firmware file.');
+        fileInput.disabled = false;
+      } catch (err) {
+        log('Connection failed: ' + err);
+      }
+    };
+
+    // ---- Step 2: Enable upload when file chosen ----
+    fileInput.onchange = () => {
+      uploadBtn.disabled = !fileInput.files.length;
+    };
+
+    // ---- Step 3: Upload firmware ----
+    uploadBtn.onclick = async () => {
+      if (!otaCharacteristic) {
+        log('Not connected to robot.');
+        return;
+      }
+
+      const file = fileInput.files[0];
+      if (!file) {
+        log('No file selected.');
+        return;
+      }
+
+      log('Reading file...');
+      const arrayBuffer = await file.arrayBuffer();
+      const totalSize = arrayBuffer.byteLength;
+      log(`Uploading ${file.name} (${totalSize} bytes)...`);
+      uploadBtn.disabled = true;
+      fileInput.disabled = true;
+
+      const view = new Uint8Array(arrayBuffer);
+      let offset = 0;
+      progressBar.value = 0;
+
+      try {
+        while (offset < totalSize) {
+          const chunk = view.slice(offset, offset + CHUNK_SIZE);
+          await otaCharacteristic.writeValue(chunk);
+          offset += CHUNK_SIZE;
+          progressBar.value = Math.min(100, (offset / totalSize) * 100);
+          await new Promise(r => setTimeout(r, 10)); // pacing
+        }
+        log('Upload complete! You may reboot the robot.');
+      } catch (err) {
+        log('Error during upload: ' + err);
+      }
+
+      uploadBtn.disabled = false;
+      fileInput.disabled = false;
+    };
+  </script>
+</body>
+</html>

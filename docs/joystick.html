@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Robot Joystick Controller</title>
+<style>
+  body {
+    font-family: sans-serif;
+    background: #111;
+    color: #eee;
+    text-align: center;
+    padding: 2em;
+  }
+  #joystick {
+    background: #222;
+    border: 2px solid #555;
+    border-radius: 50%;
+    touch-action: none;
+    width: 250px;
+    height: 250px;
+    margin: 2em auto;
+    position: relative;
+  }
+  #knob {
+    width: 60px;
+    height: 60px;
+    background: hsl(0, 100%, 50%); /* Start red */
+    border-radius: 50%;
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    transition: background 0.1s linear;
+  }
+  #status {
+    margin-top: 1em;
+    font-family: monospace;
+  }
+</style>
+</head>
+<body>
+<h1>Robot Joystick</h1>
+
+<div id="joystick">
+  <div id="knob"></div>
+</div>
+
+<div id="status">Angle: 0°, Magnitude: 0</div>
+
+<script>
+const joystick = document.getElementById('joystick');
+const knob = document.getElementById('knob');
+const status = document.getElementById('status');
+
+const center = { x: joystick.clientWidth / 2, y: joystick.clientHeight / 2 };
+const maxRadius = joystick.clientWidth / 2 - knob.clientWidth / 2;
+
+let dragging = false;
+let lastSent = 0;
+
+// Target and actual knob positions
+let target = { x: center.x, y: center.y };
+let knobPos = { x: center.x, y: center.y };
+
+// --- Replace this with your Bluetooth sending function ---
+function sendCommand(angle, magnitude) {
+  console.log(`Send → angle: ${angle.toFixed(1)}°, mag: ${magnitude.toFixed(2)}`);
+  status.textContent = `Angle: ${angle.toFixed(1)}°, Magnitude: ${magnitude.toFixed(2)}`;
+  // Example for BLE:
+  // const msg = JSON.stringify({ angle, magnitude });
+  // await txCharacteristic.writeValue(new TextEncoder().encode(msg + '\n'));
+}
+
+function setTarget(x, y) {
+  const dx = x - center.x;
+  const dy = y - center.y;
+  const dist = Math.min(Math.sqrt(dx*dx + dy*dy), maxRadius);
+  const angle = Math.atan2(dy, dx);
+  target.x = center.x + dist * Math.cos(angle);
+  target.y = center.y + dist * Math.sin(angle);
+}
+
+function resetTarget() {
+  target.x = center.x;
+  target.y = center.y;
+  sendCommand(0, 0);
+}
+
+// Smooth animation loop
+function animate() {
+  requestAnimationFrame(animate);
+
+  // Inertia smoothing
+  knobPos.x += (target.x - knobPos.x) * 0.05;
+  knobPos.y += (target.y - knobPos.y) * 0.05;
+
+  // Draw knob
+  knob.style.left = knobPos.x + 'px';
+  knob.style.top = knobPos.y + 'px';
+
+  // Compute vector
+  const dx = knobPos.x - center.x;
+  const dy = knobPos.y - center.y;
+  const dist = Math.sqrt(dx*dx + dy*dy);
+  const magnitude = dist / maxRadius;
+  const angle = Math.atan2(dy, dx);
+  const now = Date.now();
+
+  // Update knob color (red → orange → yellow → green)
+  const hue = 0 + 120 * magnitude;
+  knob.style.background = `hsl(${hue}, 100%, 50%)`;
+
+  // Throttle to 10 Hz
+  if (now - lastSent > 100) {
+    const deg = angle * 180 / Math.PI;
+    sendCommand(deg, magnitude);
+    lastSent = now;
+  }
+}
+
+animate();
+
+// --- Event handlers ---
+joystick.addEventListener('mousedown', e => {
+  dragging = true;
+  const rect = joystick.getBoundingClientRect();
+  setTarget(e.clientX - rect.left, e.clientY - rect.top);
+});
+window.addEventListener('mouseup', () => {
+  if (dragging) {
+    dragging = false;
+    resetTarget();
+  }
+});
+joystick.addEventListener('mousemove', e => {
+  if (!dragging) return;
+  const rect = joystick.getBoundingClientRect();
+  setTarget(e.clientX - rect.left, e.clientY - rect.top);
+});
+
+// Touch events
+joystick.addEventListener('touchstart', e => {
+  dragging = true;
+  const rect = joystick.getBoundingClientRect();
+  const t = e.touches[0];
+  setTarget(t.clientX - rect.left, t.clientY - rect.top);
+});
+joystick.addEventListener('touchmove', e => {
+  if (!dragging) return;
+  const rect = joystick.getBoundingClientRect();
+  const t = e.touches[0];
+  setTarget(t.clientX - rect.left, t.clientY - rect.top);
+});
+joystick.addEventListener('touchend', () => {
+  dragging = false;
+  resetTarget();
+});
+</script>
+</body>
+</html>
