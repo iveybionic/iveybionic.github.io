@@ -1,178 +1,111 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>3DoF Arm Prototype</title>
-  <style>
-    body { margin: 0; overflow: hidden; }
-  </style>
+<meta charset="UTF-8">
+<title>Three.js Arm Test</title>
+<style>
+  body { margin: 0; overflow: hidden; }
+  canvas { display: block; }
+</style>
 </head>
 <body>
 
 <script type="module">
-import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.162/build/three.module.js";
-import { OrbitControls } from "https://cdn.jsdelivr.net/npm/three@0.162/examples/jsm/controls/OrbitControls.js";
 
-/* ----------------------------------------------
-   SCENE & CAMERA
-------------------------------------------------*/
+// -------------------- IMPORTS --------------------
+import * as THREE from "https://unpkg.com/three@0.162.0/build/three.module.js";
+import { OrbitControls } from "https://unpkg.com/three@0.162.0/examples/jsm/controls/OrbitControls.js";
+
+// -------------------- SCENE SETUP --------------------
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x202020);
 
-const camera = new THREE.PerspectiveCamera(45, innerWidth/innerHeight, 0.1, 100);
-camera.position.set(4, 3, 6);
+const camera = new THREE.PerspectiveCamera(
+  60,
+  window.innerWidth / window.innerHeight,
+  0.1,
+  100
+);
+camera.position.set(3, 2, 4);
 
-const renderer = new THREE.WebGLRenderer({antialias:true});
-renderer.setSize(innerWidth, innerHeight);
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
 
 const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
 
-/* ----------------------------------------------
-   LIGHTS
-------------------------------------------------*/
-scene.add(new THREE.HemisphereLight(0xffffff, 0x444444, 1.0));
+// Lights
+scene.add(new THREE.AmbientLight(0xffffff, 0.4));
 const dir = new THREE.DirectionalLight(0xffffff, 0.8);
-dir.position.set(5, 10, 7);
+dir.position.set(3, 5, 4);
 scene.add(dir);
 
-/* ----------------------------------------------
-   ROBOT ARM
-------------------------------------------------*/
+// Grid + axes
+scene.add(new THREE.GridHelper(10, 10));
+scene.add(new THREE.AxesHelper(2));
+
+// -------------------- SIMPLE 3-DOF ARM --------------------
+const material = new THREE.MeshStandardMaterial({ color: 0x33aaee });
+const jointMaterial = new THREE.MeshStandardMaterial({ color: 0xffdd55 });
+
+function makeSegment(length) {
+  const geo = new THREE.BoxGeometry(0.2, length, 0.2);
+  const mesh = new THREE.Mesh(geo, material);
+  mesh.position.y = length / 2;
+  return mesh;
+}
+
+function makeJoint() {
+  const geo = new THREE.SphereGeometry(0.15, 16, 16);
+  return new THREE.Mesh(geo, jointMaterial);
+}
+
+// Base (fixed)
 const base = new THREE.Object3D();
 scene.add(base);
 
-const jointObjects = [];
-const linkObjects = [];
+// Joint 1
+const joint1 = new THREE.Object3D();
+base.add(joint1);
+joint1.add(makeJoint());
 
-const joints = [
-  {name:'J1', angle:0, min:-90, max:90, axis:'y'},
-  {name:'J2', angle:0, min:-45, max:80, axis:'x'},
-  {name:'J3', angle:0, min:-90, max:90, axis:'x'},
-];
+const seg1 = makeSegment(1.0);
+joint1.add(seg1);
 
-const linkLengths = [1.5, 1.2, 1.0];
+// Joint 2
+const joint2 = new THREE.Object3D();
+joint2.position.y = 1.0;
+seg1.add(joint2);
+joint2.add(makeJoint());
 
-const matNormal  = new THREE.MeshStandardMaterial({color:0xaaaaaa});
-const matSelected= new THREE.MeshStandardMaterial({color:0x00ff00});
-const matLimit   = new THREE.MeshStandardMaterial({color:0xff0000});
+const seg2 = makeSegment(0.8);
+joint2.add(seg2);
 
-let parent = base;
+// Joint 3
+const joint3 = new THREE.Object3D();
+joint3.position.y = 0.8;
+seg2.add(joint3);
+joint3.add(makeJoint());
 
-for (let i=0;i<3;i++){
-  const joint = new THREE.Object3D();
-  parent.add(joint);
-  jointObjects.push(joint);
+const seg3 = makeSegment(0.6);
+joint3.add(seg3);
 
-  const geom = new THREE.CylinderGeometry(0.1,0.1, linkLengths[i], 16);
-  const mesh = new THREE.Mesh(geom, matNormal);
-  mesh.rotation.x = Math.PI/2;
-  mesh.position.z = linkLengths[i]/2;
-  joint.add(mesh);
-  linkObjects.push(mesh);
-
-  const spacer = new THREE.Object3D();
-  spacer.position.z = linkLengths[i];
-  joint.add(spacer);
-  parent = spacer;
-}
-
-/* ----------------------------------------------
-   RAYCASTING
-------------------------------------------------*/
-const raycaster = new THREE.Raycaster();
-const mouse = new THREE.Vector2();
-let selectedIndex = -1;
-
-/* ----------------------------------------------
-   MOUSE EVENTS
-------------------------------------------------*/
-let dragging = false;
-let lastX = 0;
-
-renderer.domElement.addEventListener("mousedown", onDown);
-renderer.domElement.addEventListener("mousemove", onMove);
-renderer.domElement.addEventListener("mouseup", onUp);
-
-function onDown(e){
-  mouse.x = (e.clientX / innerWidth)*2 - 1;
-  mouse.y = -(e.clientY / innerHeight)*2 + 1;
-
-  raycaster.setFromCamera(mouse, camera);
-  const hits = raycaster.intersectObjects(linkObjects);
-
-  if (hits.length > 0) {
-    selectedIndex = linkObjects.indexOf(hits[0].object);
-    updateColors();
-    dragging = true;
-    controls.enabled = false;
-    lastX = e.clientX;
-  } else {
-    selectedIndex = -1;
-    updateColors();
-  }
-}
-
-function onMove(e){
-  if (!dragging || selectedIndex < 0) return;
-
-  const dx = e.clientX - lastX;
-  lastX = e.clientX;
-
-  const joint = joints[selectedIndex];
-  const ROT_SPEED = 0.4;
-
-  const before = joint.angle;
-  joint.angle += dx * ROT_SPEED;
-
-  joint.angle = Math.max(joint.min, Math.min(joint.max, joint.angle));
-
-  updateJointAngles();
-  updateColors(before !== joint.angle);
-}
-
-function onUp(){
-  dragging = false;
-  controls.enabled = true;
-}
-
-/* ----------------------------------------------
-   COLORS
-------------------------------------------------*/
-function updateColors(hitLimit=false){
-  for (let i=0;i<linkObjects.length;i++){
-    if (i !== selectedIndex){
-      linkObjects[i].material = matNormal;
-    } else {
-      linkObjects[i].material = hitLimit ? matLimit : matSelected;
-    }
-  }
-}
-
-/* ----------------------------------------------
-   APPLY ANGLES
-------------------------------------------------*/
-function updateJointAngles(){
-  for (let i=0;i<3;i++){
-    const j = joints[i];
-    const obj = jointObjects[i];
-    const rad = THREE.MathUtils.degToRad(j.angle);
-
-    if (j.axis === 'x') obj.rotation.x = rad;
-    if (j.axis === 'y') obj.rotation.y = rad;
-    if (j.axis === 'z') obj.rotation.z = rad;
-  }
-}
-
-/* ----------------------------------------------
-   LOOP
-------------------------------------------------*/
-function animate(){
+// -------------------- ANIMATION LOOP --------------------
+function animate() {
   requestAnimationFrame(animate);
+  controls.update();
   renderer.render(scene, camera);
 }
 animate();
 
-</script>
+// -------------------- HANDLE RESIZE --------------------
+window.addEventListener("resize", () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
 
+</script>
 </body>
 </html>
