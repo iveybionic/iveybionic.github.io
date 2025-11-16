@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Camera Tag & Motion Tracker</title>
+<style>
+  body {
+    background: #111;
+    color: #eee;
+    text-align: center;
+    font-family: sans-serif;
+    margin: 0;
+    overflow: hidden;
+  }
+  #container {
+    position: relative;
+    display: inline-block;
+    margin-top: 1em;
+  }
+  video, canvas {
+    border-radius: 8px;
+    max-width: 90vw;
+    height: auto;
+  }
+  canvas {
+    position: absolute;
+    left: 0;
+    top: 0;
+    pointer-events: none;
+  }
+  #status {
+    margin-top: 1em;
+    font-family: monospace;
+  }
+</style>
+</head>
+<body>
+<h1>Camera Tag & Motion Tracker</h1>
+<div id="container">
+  <video id="video" autoplay playsinline muted></video>
+  <canvas id="overlay"></canvas>
+</div>
+<div id="status">Initializing camera...</div>
+
+<script>
+const video = document.getElementById('video');
+const canvas = document.getElementById('overlay');
+const ctx = canvas.getContext('2d');
+const status = document.getElementById('status');
+
+let w = 0, h = 0;
+let prevFrame = null;
+let robot = null;  // {x, y, visible}
+let stable = true;
+const motionThreshold = 25;      // per-pixel intensity diff
+const globalMotionThreshold = 10; // average diff for stabilization
+const minMotionPixels = 50;
+
+// Start the camera
+async function startCamera() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: "environment" }
+    });
+    video.srcObject = stream;
+    video.onloadedmetadata = () => {
+      w = video.videoWidth;
+      h = video.videoHeight;
+      canvas.width = w;
+      canvas.height = h;
+      requestAnimationFrame(processFrame);
+      status.textContent = "Tap video to tag robot.";
+    };
+  } catch (err) {
+    status.textContent = "Camera error: " + err.message;
+  }
+}
+
+// Click to tag robot
+video.addEventListener('click', e => {
+  const rect = video.getBoundingClientRect();
+  const x = (e.clientX - rect.left) * (w / rect.width);
+  const y = (e.clientY - rect.top) * (h / rect.height);
+  robot = { x, y, visible: true };
+  status.textContent = "Robot tagged at (" + x.toFixed(0) + "," + y.toFixed(0) + ")";
+});
+
+// Frame processing loop
+function processFrame() {
+  requestAnimationFrame(processFrame);
+  if (!w || !h) return;
+
+  // Draw frame to canvas
+  ctx.drawImage(video, 0, 0, w, h);
+  const frame = ctx.getImageData(0, 0, w, h);
+  const data = frame.data;
+
+  if (prevFrame) {
+    let totalDiff = 0;
+    let motionCount = 0;
+    let xSum = 0, ySum = 0;
+
+    // Basic frame differencing
+    for (let i = 0; i < data.length; i += 4) {
+      const gray = 0.299 * data[i] + 0.587 * data[i+1] + 0.114 * data[i+2];
+      const grayPrev = 0.299 * prevFrame[i] + 0.587 * prevFrame[i+1] + 0.114 * prevFrame[i+2];
+      const diff = Math.abs(gray - grayPrev);
+      totalDiff += diff;
+      if (diff > motionThreshold) {
+        const idx = i / 4;
+        const x = idx % w;
+        const y = Math.floor(idx / w);
+        xSum += x;
+        ySum += y;
+        motionCount++;
+      }
+    }
+
+    const avgDiff = totalDiff / (w * h);
+    stable = avgDiff < globalMotionThreshold;
+
+    // If stable and local motion detected, update robot position
+    if (stable && motionCount > minMotionPixels) {
+      const cx = xSum / motionCount;
+      const cy = ySum / motionCount;
+      if (robot && robot.visible) {
+        // simple inertia blend for smoother movement
+        robot.x = robot.x * 0.8 + cx * 0.2;
+        robot.y = robot.y * 0.8 + cy * 0.2;
+      } else {
+        robot = { x: cx, y: cy, visible: true };
+      }
+    } else if (!stable) {
+      // Camera moved too much → hide robot
+      if (robot) robot.visible = false;
+    }
+
+    drawOverlay(avgDiff, motionCount);
+  }
+
+  // Store current frame for next iteration
+  prevFrame = new Uint8ClampedArray(data);
+}
+
+// Draw robot and stabilization indicator
+function drawOverlay(avgDiff, motionCount) {
+  ctx.clearRect(0, 0, w, h);
+
+  // Stabilization indicator
+  ctx.fillStyle = stable ? 'lime' : 'red';
+  ctx.beginPath();
+  ctx.arc(20, 20, 10, 0, Math.PI * 2);
+  ctx.fill();
+
+  if (robot && robot.visible) {
+    ctx.strokeStyle = 'cyan';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(robot.x, robot.y, 25, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+
+  status.textContent = stable
+    ? `Tracking (Δ=${avgDiff.toFixed(1)}, motion=${motionCount})`
+    : `Unstable camera (Δ=${avgDiff.toFixed(1)})`;
+}
+
+startCamera();
+</script>
+</body>
+</html>

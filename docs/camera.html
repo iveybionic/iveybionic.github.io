@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Camera Controller Demo</title>
+<style>
+  body {
+    background: #111;
+    color: #eee;
+    text-align: center;
+    font-family: sans-serif;
+  }
+  video {
+    width: 90%;
+    max-width: 500px;
+    border: 2px solid #555;
+    border-radius: 8px;
+    margin-top: 1em;
+    transform: scaleX(-1); /* mirror for front camera */
+  }
+  canvas {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    margin-top: 1em;
+    border-radius: 8px;
+    pointer-events: none;
+  }
+</style>
+</head>
+<body>
+<h1>Camera Controller</h1>
+<video id="video" autoplay playsinline></video>
+<canvas id="overlay"></canvas>
+
+<script>
+const video = document.getElementById('video');
+const canvas = document.getElementById('overlay');
+const ctx = canvas.getContext('2d');
+
+// Start camera
+async function startCamera() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: "environment" } // try "user" for front camera
+    });
+    video.srcObject = stream;
+    video.onloadedmetadata = () => {
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      drawOverlay();
+    };
+  } catch (err) {
+    alert("Camera error: " + err.message);
+  }
+}
+
+let target = null;
+
+// Draw overlay loop
+function drawOverlay() {
+  requestAnimationFrame(drawOverlay);
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  if (target) {
+    ctx.strokeStyle = "red";
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(target.x, target.y, 20, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+}
+
+// Register click-to-set-target
+video.addEventListener('click', e => {
+  const rect = video.getBoundingClientRect();
+  const x = (e.clientX - rect.left) * (video.videoWidth / rect.width);
+  const y = (e.clientY - rect.top) * (video.videoHeight / rect.height);
+  target = { x, y };
+  console.log("Target set:", target);
+});
+
+startCamera();
+</script>
+</body>
+</html>

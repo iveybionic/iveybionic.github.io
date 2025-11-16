@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>Blockly Robot Demo</title>
+
+  <!-- Load Blockly from CDN -->
+  <script src="https://unpkg.com/blockly/blockly.min.js"></script>
+
+  <style>
+    body {
+      font-family: sans-serif;
+      margin: 0;
+      display: flex;
+      height: 100vh;
+      overflow: hidden;
+    }
+    #blocklyDiv {
+      height: 100%;
+      width: 70%;
+    }
+    #controls {
+      width: 30%;
+      padding: 10px;
+      background: #fafafa;
+      border-left: 2px solid #ddd;
+      display: flex;
+      flex-direction: column;
+    }
+    button {
+      padding: 10px;
+      margin: 5px 0;
+      font-size: 1.1em;
+    }
+    #log {
+      flex: 1;
+      overflow-y: auto;
+      background: #fff;
+      border: 1px solid #ccc;
+      padding: 5px;
+      font-family: monospace;
+      white-space: pre-wrap;
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- Blockly workspace -->
+  <div id="blocklyDiv"></div>
+
+  <!-- Sidebar -->
+  <div id="controls">
+    <button onclick="runCode()">▶ Run Program</button>
+    <button onclick="resetLog()">Clear Log</button>
+    <h3>Log</h3>
+    <div id="log"></div>
+  </div>
+
+  <!-- Toolbox XML (defines Blockly categories + block types) -->
+  <xml id="toolbox" style="display:none">
+    <category name="Robot" colour="#5C81A6">
+      <block type="robot_forward"></block>
+      <block type="robot_turn"></block>
+      <block type="robot_stop"></block>
+    </category>
+
+    <category name="Control" colour="#FFAB19">
+      <block type="controls_repeat_ext"></block>
+      <block type="controls_if"></block>
+    </category>
+
+    <category name="Math" colour="#4CAF50">
+      <block type="math_number"></block>
+      <block type="math_arithmetic"></block>
+    </category>
+  </xml>
+
+  <script>
+    /****************************************************
+     * 1. DEFINE CUSTOM ROBOT BLOCKS
+     ****************************************************/
+    Blockly.defineBlocksWithJsonArray([
+      {
+        "type": "robot_forward",
+        "message0": "move forward %1 speed",
+        "args0": [
+          {
+            "type": "field_number",
+            "name": "SPEED",
+            "value": 50,
+            "min": 0,
+            "max": 100
+          }
+        ],
+        "previousStatement": null,
+        "nextStatement": null,
+        "colour": 160
+      },
+      {
+        "type": "robot_turn",
+        "message0": "turn %1 °",
+        "args0": [
+          {
+            "type": "field_angle",
+            "name": "ANGLE",
+            "angle": 90
+          }
+        ],
+        "previousStatement": null,
+        "nextStatement": null,
+        "colour": 200
+      },
+      {
+        "type": "robot_stop",
+        "message0": "stop robot",
+        "previousStatement": null,
+        "nextStatement": null,
+        "colour": 10
+      }
+    ]);
+
+    /****************************************************
+     * 2. GENERATE JAVASCRIPT FOR THE CUSTOM BLOCKS
+     ****************************************************/
+    Blockly.JavaScript['robot_forward'] = function(block) {
+      const speed = block.getFieldValue('SPEED');
+      return `sendRobotCommand("forward", ${speed});\n`;
+    };
+
+    Blockly.JavaScript['robot_turn'] = function(block) {
+      const angle = block.getFieldValue('ANGLE');
+      return `sendRobotCommand("turn", ${angle});\n`;
+    };
+
+    Blockly.JavaScript['robot_stop'] = function(block) {
+      return `sendRobotCommand("stop", 0);\n`;
+    };
+
+    /****************************************************
+     * 3. INITIALIZE BLOCKLY WORKSPACE
+     ****************************************************/
+    const workspace = Blockly.inject('blocklyDiv', {
+      toolbox: document.getElementById('toolbox'),
+      scrollbars: true,
+      trashcan: true
+    });
+
+    /****************************************************
+     * 4. ROBOT COMMAND HANDLER (stub)
+     * Replace this with BLE or WebSocket control later.
+     ****************************************************/
+    function sendRobotCommand(cmd, val) {
+      log(`COMMAND → ${cmd}, VALUE → ${val}`);
+
+      // Example BLE/WebSocket usage:
+      // bleTxCharacteristic.writeValue(new TextEncoder().encode(JSON.stringify({cmd,val})));
+      // OR
+      // ws.send(JSON.stringify({cmd,val}));
+    }
+
+    /****************************************************
+     * 5. EXECUTE GENERATED BLOCK CODE
+     ****************************************************/
+    function runCode() {
+      const code = Blockly.JavaScript.workspaceToCode(workspace);
+      log("RUNNING PROGRAM:\n" + code);
+      try {
+        eval(code);  // executes the generated commands
+      } catch (e) {
+        log("ERROR: " + e);
+      }
+    }
+
+    /****************************************************
+     * 6. LOGGING UTILITIES
+     ****************************************************/
+    function log(msg) {
+      const logDiv = document.getElementById('log');
+      logDiv.textContent += msg + "\n";
+      logDiv.scrollTop = logDiv.scrollHeight;
+    }
+
+    function resetLog() {
+      document.getElementById('log').textContent = "";
+    }
+  </script>
+
+</body>
+</html>

@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>3DoF Arm Prototype</title>
+  <style>
+    body { margin: 0; overflow: hidden; }
+  </style>
+</head>
+<body>
+
+<script type="module">
+import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.162/build/three.module.js";
+import { OrbitControls } from "https://cdn.jsdelivr.net/npm/three@0.162/examples/jsm/controls/OrbitControls.js";
+
+/* ----------------------------------------------
+   SCENE & CAMERA
+------------------------------------------------*/
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x202020);
+
+const camera = new THREE.PerspectiveCamera(45, innerWidth/innerHeight, 0.1, 100);
+camera.position.set(4, 3, 6);
+
+const renderer = new THREE.WebGLRenderer({antialias:true});
+renderer.setSize(innerWidth, innerHeight);
+document.body.appendChild(renderer.domElement);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+
+/* ----------------------------------------------
+   LIGHTS
+------------------------------------------------*/
+scene.add(new THREE.HemisphereLight(0xffffff, 0x444444, 1.0));
+const dir = new THREE.DirectionalLight(0xffffff, 0.8);
+dir.position.set(5, 10, 7);
+scene.add(dir);
+
+/* ----------------------------------------------
+   ROBOT ARM
+------------------------------------------------*/
+const base = new THREE.Object3D();
+scene.add(base);
+
+const jointObjects = [];
+const linkObjects = [];
+
+const joints = [
+  {name:'J1', angle:0, min:-90, max:90, axis:'y'},
+  {name:'J2', angle:0, min:-45, max:80, axis:'x'},
+  {name:'J3', angle:0, min:-90, max:90, axis:'x'},
+];
+
+const linkLengths = [1.5, 1.2, 1.0];
+
+const matNormal  = new THREE.MeshStandardMaterial({color:0xaaaaaa});
+const matSelected= new THREE.MeshStandardMaterial({color:0x00ff00});
+const matLimit   = new THREE.MeshStandardMaterial({color:0xff0000});
+
+let parent = base;
+
+for (let i=0;i<3;i++){
+  const joint = new THREE.Object3D();
+  parent.add(joint);
+  jointObjects.push(joint);
+
+  const geom = new THREE.CylinderGeometry(0.1,0.1, linkLengths[i], 16);
+  const mesh = new THREE.Mesh(geom, matNormal);
+  mesh.rotation.x = Math.PI/2;
+  mesh.position.z = linkLengths[i]/2;
+  joint.add(mesh);
+  linkObjects.push(mesh);
+
+  const spacer = new THREE.Object3D();
+  spacer.position.z = linkLengths[i];
+  joint.add(spacer);
+  parent = spacer;
+}
+
+/* ----------------------------------------------
+   RAYCASTING
+------------------------------------------------*/
+const raycaster = new THREE.Raycaster();
+const mouse = new THREE.Vector2();
+let selectedIndex = -1;
+
+/* ----------------------------------------------
+   MOUSE EVENTS
+------------------------------------------------*/
+let dragging = false;
+let lastX = 0;
+
+renderer.domElement.addEventListener("mousedown", onDown);
+renderer.domElement.addEventListener("mousemove", onMove);
+renderer.domElement.addEventListener("mouseup", onUp);
+
+function onDown(e){
+  mouse.x = (e.clientX / innerWidth)*2 - 1;
+  mouse.y = -(e.clientY / innerHeight)*2 + 1;
+
+  raycaster.setFromCamera(mouse, camera);
+  const hits = raycaster.intersectObjects(linkObjects);
+
+  if (hits.length > 0) {
+    selectedIndex = linkObjects.indexOf(hits[0].object);
+    updateColors();
+    dragging = true;
+    controls.enabled = false;
+    lastX = e.clientX;
+  } else {
+    selectedIndex = -1;
+    updateColors();
+  }
+}
+
+function onMove(e){
+  if (!dragging || selectedIndex < 0) return;
+
+  const dx = e.clientX - lastX;
+  lastX = e.clientX;
+
+  const joint = joints[selectedIndex];
+  const ROT_SPEED = 0.4;
+
+  const before = joint.angle;
+  joint.angle += dx * ROT_SPEED;
+
+  joint.angle = Math.max(joint.min, Math.min(joint.max, joint.angle));
+
+  updateJointAngles();
+  updateColors(before !== joint.angle);
+}
+
+function onUp(){
+  dragging = false;
+  controls.enabled = true;
+}
+
+/* ----------------------------------------------
+   COLORS
+------------------------------------------------*/
+function updateColors(hitLimit=false){
+  for (let i=0;i<linkObjects.length;i++){
+    if (i !== selectedIndex){
+      linkObjects[i].material = matNormal;
+    } else {
+      linkObjects[i].material = hitLimit ? matLimit : matSelected;
+    }
+  }
+}
+
+/* ----------------------------------------------
+   APPLY ANGLES
+------------------------------------------------*/
+function updateJointAngles(){
+  for (let i=0;i<3;i++){
+    const j = joints[i];
+    const obj = jointObjects[i];
+    const rad = THREE.MathUtils.degToRad(j.angle);
+
+    if (j.axis === 'x') obj.rotation.x = rad;
+    if (j.axis === 'y') obj.rotation.y = rad;
+    if (j.axis === 'z') obj.rotation.z = rad;
+  }
+}
+
+/* ----------------------------------------------
+   LOOP
+------------------------------------------------*/
+function animate(){
+  requestAnimationFrame(animate);
+  renderer.render(scene, camera);
+}
+animate();
+
+</script>
+
+</body>
+</html>
