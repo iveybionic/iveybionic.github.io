@@ -1,123 +1,36 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Robot Controller</title>
+  <meta charset="utf-8">
+  <title>Borogroves</title>
   <style>
-    body {
-      font-family: sans-serif;
-      text-align: center;
-      margin: 2em;
-    }
-    button {
-      font-size: 1.2em;
-      margin: 0.5em;
-      padding: 0.6em 1.2em;
-      border: none;
-      border-radius: 0.5em;
-      background-color: #007aff;
-      color: white;
-    }
-    button:disabled {
-      background-color: #aaa;
-    }
+    body { font-family: sans-serif; }
+    nav button { margin-right: 10px; }
   </style>
-  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <h3><i>[....all mimsy were the borogroves....]</i></h3>
-  <h1>Robot Controller</h1>
-  <button id="connect" onclick="connectRequest()">🔗 Connect</button>
-  <p id="status">Not connected</p>
-  <div id="controls" style="display:block;">
-    <button onclick="sendCommand('f')">
-      <span class="label-full">Forward ⬆️</span>
-      <span class="label-short">⬆️</span>
-    </button><br>
-    <button onclick="sendCommand('l')">
-      <span class="label-full">CCW ↪️</span>
-      <span class="label-short">↪️</span>
-    </button>
-    <button onclick="sendCommand('s')">
-      <span class="label-full">🛑 Stop</span>
-      <span class="label-short">🛑</span>
-    <button onclick="sendCommand('r')">
-      <span class="label-full">↩️ CW</span>
-      <span class="label-short">↩️</span>
-    </button><br>
-    <button onclick="sendCommand('b')">
-      <span class="label-full">⬇️ Back</span>
-      <span class="label-short">⬇️</span>
-    </button><br><br>
-    <button onclick="sendCommand('e')">
-      <span class="label-full">👀 Look</span>
-      <span class="label-short">👀</span>
-    </button>
-    <button onclick="sendCommand('w')">
-      <span class="label-full">👋 Wave</span>
-      <span class="label-short">👋</span>
-    </button>
-    <button onclick="sendCommand('p')">
-      <span class="label-full">🎃 Pumpkin</span>
-      <span class="label-short">🎃</span>
-    </button>
-  </div>
 
-  <script>
-    let txCharacteristic = null;
+<nav>
+  <button onclick="navigate('plotter')">Plotter</button>
+  <button onclick="navigate('controller')">Controller</button>
+  <button onclick="navigate('debug')">Debug</button>
+  <button onclick="connectBLE()">Connect</button>
+</nav>
 
-    async function disconnectRequest() {
-      const server = await device.gatt.disconnect();
-      document.getElementById('connect').textContent = 'TODO: Why can\'t we reconnect';
-      document.getElementById('status').textContent = 'Not connected';
-      document.getElementById('controls').style.display = 'none';
-    };
+<hr>
 
-    async function connectRequest() {
-      try {
-        const device = await navigator.bluetooth.requestDevice({
-          filters: [{ namePrefix: 'Mimsy' }], // change to match your device’s name
-          optionalServices: ['6e400001-b5a3-f393-e0a9-e50e24dcca9e'] // esp32
-        });
+<div id="app"></div>
 
-        const server = await device.gatt.connect();
-        const service = await server.getPrimaryService('6e400001-b5a3-f393-e0a9-e50e24dcca9e');
-        txCharacteristic = await service.getCharacteristic('6e400002-b5a3-f393-e0a9-e50e24dcca9e');
-        rxCharacteristic = await service.getCharacteristic('6e400003-b5a3-f393-e0a9-e50e24dcca9e');
+<script type="module">
+import { connect } from './core/ble.js';
+import { navigate } from './core/router.js';
 
-        document.getElementById('connect').textContent = '✖️ Disconnect';
-        document.getElementById('connect').onclick = disconnectRequest();
-        document.getElementById('status').textContent = '✅ Connected to ' + device.name;
-        document.getElementById('controls').style.display = 'block';
-      } catch (error) {
-        document.getElementById('status').textContent = '❌ ' + error;
-      }
-    };
+window.navigate = navigate;
+window.connectBLE = connect;
 
-    async function sendCommand(cmd) {
-      if (!txCharacteristic) {
-        document.getElementById('status').textContent = 'Error: No TX characteristic.';
-        return;
-      }
+// load default module
+navigate('plotter');
+</script>
 
-      const data = new TextEncoder().encode(cmd + '\n');
-
-      try {
-        if (txCharacteristic.properties.write) {
-          await txCharacteristic.writeValue(data);
-        } else if (txCharacteristic.properties.writeWithoutResponse) {
-          await txCharacteristic.writeValueWithoutResponse(data);
-        } else {
-          throw new Error('Characteristic not writable.');
-        }
-
-        document.getElementById('status').textContent = 'Sent: ' + cmd;
-      } catch (error) {
-        document.getElementById('status').textContent = 'Error: ' + error;
-        console.error(error);
-      }
-    };
-  </script>
 </body>
 </html>
