@@ -1,0 +1,19 @@
+{
+  "endianness": "little",
+  "header": [
+    { "name": "version", "type": "uint8" },
+    { "name": "type", "type": "uint8" },
+    { "name": "length", "type": "uint8" },
+    { "name": "crc", "type": "uint8" }
+  ],
+  "payload": [
+    { "name": "timestamp", "type": "int32", "role": "x" },
+    { "name": "temperature", "type": "float32" },
+    { "name": "acc_x", "type": "float32" },
+    { "name": "acc_y", "type": "float32" },
+    { "name": "acc_z", "type": "float32" },
+    { "name": "gyr_x", "type": "float32" },
+    { "name": "gyr_y", "type": "float32" },
+    { "name": "gyr_z", "type": "float32" }
+  ]
+}

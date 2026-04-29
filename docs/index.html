@@ -13,8 +13,8 @@
 <nav>
   <button onclick="navigate('plotter')">Plotter</button>
   <button onclick="navigate('controller')">Controller</button>
-  <button onclick="navigate('debug')">Debug</button>
-  <button onclick="connectBLE()">Connect</button>
+  <button onclick="connectBLE('n')">Disconnect</button>
+  <button onclick="connectBLE('y')">Connect</button>
 </nav>
 
 <hr>
@@ -23,7 +23,7 @@
 
 <script type="module">
 import { connect } from './core/ble.js';
-import { navigate } from './core/router.js';
+import { navigate } from './utils/router.js';
 
 window.navigate = navigate;
 window.connectBLE = connect;
