@@ -2,8 +2,9 @@
 
 export const state = {
   device: null,
-  txCharacteristic: null,
-  rxCharacteristic: null
+  msg_chr: null,
+  bulk_chr: null,
+  _handler: null
 };
 
 const listeners = new Set();
@@ -11,25 +12,40 @@ const listeners = new Set();
 export async function connect(req) {
   if (req == "y") {
     state.device = await navigator.bluetooth.requestDevice({
-      filters: [{ namePrefix: 'Mimsy' }], // change to match your device’s name
-      optionalServices: ['6e400001-b5a3-f393-e0a9-e50e24dcca9e'] // esp32
+      filters: [{ namePrefix: 'Mimsy' }],
+      // optionalServices: [''] // TODO for OTA
     });
+
+    if (!state.device) {
+      console.warn("No device selected");
+      return;
+    }
 
     const server = await state.device.gatt.connect();
     const service = await server.getPrimaryService('6e400001-b5a3-f393-e0a9-e50e24dcca9e');
-    state.txCharacteristic = await service.getCharacteristic('6e400002-b5a3-f393-e0a9-e50e24dcca9e');
-    state.rxCharacteristic = await service.getCharacteristic('6e400003-b5a3-f393-e0a9-e50e24dcca9e');
+    state.msg_chr = await service.getCharacteristic('6e400002-b5a3-f393-e0a9-e50e24dcca9e');
+    state.bulk_chr = await service.getCharacteristic('6e400003-b5a3-f393-e0a9-e50e24dcca9e');
     
-    // await txcharacteristic.startNotifications();
-  
-    // rxcharacteristic.addEventListener('characteristicvaluechanged', (e) => {
-    //   const value = e.target.value;
-    //   listeners.forEach(fn => fn(value));
-    // });
+    state.device.addEventListener('gattserverdisconnected', () => {
+      console.warn("BLE disconnected (event)");
+      state.msg_chr = null;
+      state.bulk_chr = null;
+    });
+    
     console.log("BLE connected");
+
+    await state.bulk_chr.startNotifications();
+
+    state._handler = (e) => {
+      const value = e.target.value;
+      listeners.forEach(fn => fn(value));
+    };
+
+    state.bulk_chr.addEventListener('characteristicvaluechanged', state._handler);
+    console.log("BLE stream connected");
   
   } else if (req == "n") {
-    const server = await state.device.gatt.disconnect();
+    state.device?.gatt.disconnect();
     console.log("BLE disconnected");
 
   } else {
@@ -43,18 +59,13 @@ export function subscribe(fn) {
   return () => listeners.delete(fn); // unsubscribe
 }
 
-export function subscribeParsed(fn) {
-  return subscribe((value) => {
-    const text = new TextDecoder().decode(value);
-    fn(text);
-  });
-}
-
 export function send(data) {
-  if (!state.txcharacteristic) return;
-  return state.txcharacteristic.writeValue(data);
+  if (!state.msg_chr) {
+    return;
+  }
+  return state.msg_chr.writeValue(data);
 }
 
 export function isConnected() {
-  return !!state.rxcharacteristic;
+  return !!(state.device && state.device.gatt.connected);
 }

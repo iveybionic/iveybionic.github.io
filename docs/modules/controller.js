@@ -10,11 +10,11 @@ export function mount(root) {
   `;
 
   root.querySelector("#fwd").onclick = () => {
-    send(new TextEncoder().encode("F\n"));
+    send(new TextEncoder().encode("F"));
   };
 
   root.querySelector("#stop").onclick = () => {
-    send(new TextEncoder().encode("S\n"));
+    send(new TextEncoder().encode("S"));
   };
 
   return () => {};

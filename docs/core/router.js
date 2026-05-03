@@ -1,4 +1,4 @@
-// utils/router.js
+// core/router.js
 
 let currentCleanup = null;
 

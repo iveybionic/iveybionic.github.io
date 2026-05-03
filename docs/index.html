@@ -11,8 +11,8 @@
 <body>
 
 <nav>
-  <button onclick="navigate('plotter')">Plotter</button>
   <button onclick="navigate('controller')">Controller</button>
+  <button onclick="navigate('plotter')">Plotter</button> 
   <button onclick="connectBLE('n')">Disconnect</button>
   <button onclick="connectBLE('y')">Connect</button>
 </nav>
@@ -23,13 +23,13 @@
 
 <script type="module">
 import { connect } from './core/ble.js';
-import { navigate } from './utils/router.js';
+import { navigate } from './core/router.js';
 
 window.navigate = navigate;
 window.connectBLE = connect;
 
 // load default module
-navigate('plotter');
+navigate('controller');
 </script>
 
 </body>

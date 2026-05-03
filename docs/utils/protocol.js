@@ -25,12 +25,12 @@ export function makeDecoder(spec) {
     for (const field of layout) {
       const reader = readers[field.type];
       if (!reader) throw new Error(`Unsupported type: ${field.type}`);
-
+      
       const [value, size] = reader(dv, offset);
       offset += size;
       out[field.name] = value;
     }
-
+    
     return out;
   };
 }

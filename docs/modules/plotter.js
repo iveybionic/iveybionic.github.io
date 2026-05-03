@@ -3,7 +3,17 @@
 import { subscribe } from '../core/ble.js';
 import { RingBuffer } from '../utils/ringbuffer.js';
 import { makeDecoder, extractChannels } from '../utils/protocol.js';
-import spec from '../shared/protocol.json' assert { type: 'json' };
+import spec from '../shared/protocol.json' with { type: 'json' };
+
+
+function generateColors(n) {
+  const colors = [];
+  for (let i = 0; i < n; i++) {
+    const hue = (i * 360 / n) % 360;
+    colors.push(`hsl(${hue}, 70%, 50%)`);
+  }
+  return colors;
+}
 
 export function mount(root) {
   root.innerHTML = `
@@ -30,38 +40,46 @@ export function mount(root) {
   const buffer = new RingBuffer(MAX_POINTS, CHANNELS);
 
   // --- setup uPlot dynamically ---
-  const series = [{}]; // x axis
+  const colors = generateColors(ys.length);
+  const series = [{label: x}]; // x axis
+  let i = 0;
   for (const name of ys) {
-    series.push({ label: name });
+    series.push({ 
+      label: name, 
+      stroke: colors[i],
+      width: 2 
+    });
+    i++;
   }
 
-  const plot = new uPlot({
-    width: 800,
-    height: 400,
-    series
-  }, buffer.snapshot(), root.querySelector("#chart"));
+  let plot = null;
 
-  // let plot = null;
+  function initPlot() {
+    const opts = {
+      class: "uplot-dark",
+      width: 1000,
+      height: 400,
+      series,
+      title: "IMU Data",
+      scales: { x: { time: false } }
+    };
 
-  // function initPlot() {
-  //   const opts = {
-  //     width: 800,
-  //     height: 400,
-  //     series,
-  //   };
+    plot = new uPlot(opts, buffer.snapshot(), root.querySelector("#chart"));
+  }
 
-  //   plot = new uPlot(opts, buffer.snapshot(), root.querySelector("#chart"));
-  // }
-
-  // // wait for uPlot to load
-  // script.onload = initPlot;
+  // wait for uPlot to load
+  script.onload = initPlot;
 
   // --- BLE subscription ---
   const unsubscribe = subscribe((value) => {
+    // console.log("value byte offset: ", value.byteOffset);
     const slice = value.buffer.slice(
       value.byteOffset,
       value.byteOffset + value.byteLength
     );
+    
+    // console.log("packet length in plotter:", value.byteLength);
+    // console.log("slice byte length: ", slice.byteLength);
 
     const data = decode(slice);
 
@@ -74,12 +92,16 @@ export function mount(root) {
 
   // --- render loop ---
   const interval = setInterval(() => {
-    plot.setData(buffer.snapshot());
+    if (plot) {
+      plot.setData(buffer.snapshot());
+    }
   }, 50);
 
   return () => {
     unsubscribe();
     clearInterval(interval);
-    plot.destroy();
+    if (plot) {
+      plot.destroy();
+    }
   };
 }
