@@ -13,7 +13,7 @@ export async function connect(req) {
   if (req == "y") {
     state.device = await navigator.bluetooth.requestDevice({
       filters: [{ namePrefix: 'Mimsy' }],
-      // optionalServices: [''] // TODO for OTA
+      optionalServices: ['6e400001-b5a3-f393-e0a9-e50e24dcca9e']
     });
 
     if (!state.device) {

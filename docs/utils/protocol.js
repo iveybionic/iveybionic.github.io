@@ -48,3 +48,20 @@ export function extractChannels(spec) {
     ys: yFields.map(f => f.name),
   };
 }
+
+
+export function sendCommand(send, cmd, n, a = 0, b = 0) {
+  const buffer = new ArrayBuffer(1 + 1 + 1 + 1 + 4 + 4);
+  const dv = new DataView(buffer);
+
+  let o = 0;
+  dv.setUint8(o++, 1);       // version
+  dv.setUint8(o++, 1);       // type = command
+  dv.setUint8(o++, new TextEncoder().encode(cmd));     // command id
+  dv.setUint8(o++, new TextEncoder().encode(n));       // bonus
+  dv.setFloat32(o, a, true); o += 4;
+  dv.setFloat32(o, b, true);
+  console.log(dv)
+  console.log(buffer)
+  send(buffer);
+}
