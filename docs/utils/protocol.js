@@ -1,5 +1,6 @@
 // utils/protocol.js
 
+import { send } from '../core/ble.js';
 
 export function makeDecoder(spec) {
   const littleEndian = spec.endianness === "little";
@@ -25,10 +26,14 @@ export function makeDecoder(spec) {
     for (const field of layout) {
       const reader = readers[field.type];
       if (!reader) throw new Error(`Unsupported type: ${field.type}`);
-      
-      const [value, size] = reader(dv, offset);
-      offset += size;
-      out[field.name] = value;
+      try {
+        const [value, size] = reader(dv, offset);
+        offset += size;
+        out[field.name] = value;
+      } catch (RangeError) {
+        out["type"] = 0xFF; // TODO: This should be part of the spec
+        break;
+      }
     }
     
     return out;
@@ -49,19 +54,47 @@ export function extractChannels(spec) {
   };
 }
 
-
-export function sendCommand(send, cmd, n, a = 0, b = 0) {
-  const buffer = new ArrayBuffer(1 + 1 + 1 + 1 + 4 + 4);
+// TODO: sendCommand should be spec generated as well
+export function sendStopCommand() {
+  const buffer = new ArrayBuffer(4);
   const dv = new DataView(buffer);
 
   let o = 0;
   dv.setUint8(o++, 1);       // version
-  dv.setUint8(o++, 1);       // type = command
-  dv.setUint8(o++, new TextEncoder().encode(cmd));     // command id
-  dv.setUint8(o++, new TextEncoder().encode(n));       // bonus
-  dv.setFloat32(o, a, true); o += 4;
-  dv.setFloat32(o, b, true);
-  console.log(dv)
-  console.log(buffer)
+  dv.setUint8(o++, new TextEncoder().encode('X'));     // command id character
+  dv.setUint8(o++, 0);       // cmd extension
+  dv.setUint8(o++, 0xFF);       // TODO: crc
+
+  send(buffer);
+}
+
+export function sendTwistCommand(angle = 0, mag = 0) {
+  const buffer = new ArrayBuffer(4 + 4 + 4);
+  const dv = new DataView(buffer);
+
+  let o = 0;
+  dv.setUint8(o++, 1);       // version
+  dv.setUint8(o++, new TextEncoder().encode('T'));     // command id character
+  dv.setUint8(o++, 0);       // cmd extension
+  dv.setUint8(o++, 0xFF);       // TODO: crc
+  dv.setFloat32(o, angle, true); o += 4;
+  dv.setFloat32(o, mag, true);
+ 
+  send(buffer);
+}
+
+export function commandServos(pos, rel = 0) {
+  const buffer = new ArrayBuffer(4 + 12);
+  const dv = new DataView(buffer);
+
+  let o = 0;
+  dv.setUint8(o++, 1);          // version
+  dv.setUint8(o++, new TextEncoder().encode('S'));     // command id character
+  dv.setUint8(o++, rel);        // relative pos
+  dv.setUint8(o++, 0xFF);       // TODO: crc
+
+  for (let p = 0; p < 12; p++) { // So fragile.  
+    dv.setInt8(o++, pos[p]);
+  }
   send(buffer);
 }

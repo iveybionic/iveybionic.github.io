@@ -1,10 +1,6 @@
 // modules/joystick.js
 
-import { send } from '../core/ble.js';
-import { sendCommand } from '../utils/protocol.js';
-
-const CMD_STOP = 'X';
-const CMD_JOYSTICK = 'J';
+import { sendTwistCommand, sendStopCommand } from '../utils/protocol.js';
 
 export function mount(root) {
   root.innerHTML = `
@@ -15,26 +11,35 @@ export function mount(root) {
 
   const outer = root.querySelector(".joy-outer");
   const inner = root.querySelector(".joy-inner");
-
+  outer.style.touchAction = "none";
+  
+  
   // styling
-  Object.assign(outer.style, {
-    width: "200px",
-    height: "200px",
-    borderRadius: "50%",
-    background: "#222",
-    position: "relative",
-    margin: "20px"
-  });
+  function resize() {
+    const osize = Math.min(root.clientWidth, 200);
+    Object.assign(outer.style, {
+      width: osize + "px",
+      height: osize + "px",
+      borderRadius: "50%",
+      background: "#222",
+      position: "center",
+      margin: "20px"
+    });
+    
+    const isize = Math.min(root.clientWidth / 4, 60);
+    Object.assign(inner.style, {
+      width: isize + "px",
+      height: isize + "px",
+      borderRadius: "50%",
+      background: "gray",
+      position: "relative",
+      top: isize + 10 + "px",
+      left: isize + 10 + "px"
+    });
+  }
 
-  Object.assign(inner.style, {
-    width: "60px",
-    height: "60px",
-    borderRadius: "50%",
-    background: "gray",
-    position: "absolute",
-    left: "70px",
-    top: "70px"
-  });
+  window.addEventListener("resize", resize);
+  resize();
 
   let dragging = false;
 
@@ -49,30 +54,32 @@ export function mount(root) {
     const r = Math.sqrt(dx * dx + dy * dy);
     const max = rect.width / 2;
 
-    let mag = Math.min(r / max, 1);
-    let angle = Math.atan2(dy, dx); // radians
-
+    // let angle = Math.atan2(dy, dx); // radians
+    
     // clamp position
     if (r > max) {
       dx *= max / r;
       dy *= max / r;
     }
-
+    
+    console.log(`dx: ${-dx} dy: ${-dy}`)
+    
     inner.style.left = `${cx + dx - 30}px`;
     inner.style.top = `${cy + dy - 30}px`;
-
+    
     // color intensity
+    let mag = Math.min(r / max, 1);
     const intensity = Math.floor(255 * mag);
     inner.style.background = `rgb(${255 - intensity}, ${intensity}, 0)`;
 
-    sendCommand(send, CMD_JOYSTICK, 0, angle, mag);
+    sendTwistCommand(-dx, -dy);
   }
 
   function reset() {
     inner.style.left = "70px";
     inner.style.top = "70px";
     inner.style.background = "gray";
-    sendCommand(send, CMD_STOP, 0, 0, 0);
+    sendStopCommand();
   }
 
   function start(e) {
@@ -101,6 +108,8 @@ export function mount(root) {
   window.addEventListener("touchend", end);
 
   return () => {
+    sendStopCommand();
+
     outer.removeEventListener("mousedown", start);
     window.removeEventListener("mousemove", move);
     window.removeEventListener("mouseup", end);

@@ -57,7 +57,7 @@ export function mount(root) {
   function initPlot() {
     const opts = {
       class: "uplot-dark",
-      width: 1000,
+      width: root.clientWidth,
       height: 400,
       series,
       title: "IMU Data",
@@ -67,24 +67,30 @@ export function mount(root) {
     plot = new uPlot(opts, buffer.snapshot(), root.querySelector("#chart"));
   }
 
+  function resize() {
+    const size = Math.min(root.clientWidth, 400);
+    if (plot) {
+      plot.style.width = size + "px";
+    }
+  }
+
+  window.addEventListener("resize", resize);
+  resize();
+
   // wait for uPlot to load
   script.onload = initPlot;
 
   // --- BLE subscription ---
   const unsubscribe = subscribe((value) => {
-    // console.log("value byte offset: ", value.byteOffset);
     const slice = value.buffer.slice(
       value.byteOffset,
       value.byteOffset + value.byteLength
     );
     
-    // console.log("packet length in plotter:", value.byteLength);
-    // console.log("slice byte length: ", slice.byteLength);
-
     const data = decode(slice);
 
-    // optional: filter message type
-    if (data.type !== 0) return;
+    // RangeError, don't push data to buffer
+    if (data.type == 0xFF) return;
 
     const row = [data[x], ...ys.map(k => data[k])];
     buffer.push(row);

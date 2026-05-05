@@ -1,10 +1,6 @@
 // modules/controller.js
 
-import { send } from '../core/ble.js';
-import { sendCommand } from '../utils/protocol.js';
-
-const CMD_STOP = 'X';
-const CMD_BASIC = 'W';
+import { sendTwistCommand, sendStopCommand } from '../utils/protocol.js';
 
 export function mount(root) {
   root.innerHTML = `
@@ -33,25 +29,28 @@ export function mount(root) {
     </div>
   `;
 
+  const spd = .8;
   root.querySelector("#fwd").onclick = () => {
-    sendCommand(send, CMD_BASIC,"F", 0, 0);
+    sendTwistCommand(0, spd)
   };
 
   root.querySelector("#back").onclick = () => {
-    sendCommand(send, CMD_BASIC,"B", 0, 0);
+    sendTwistCommand(Math.PI, spd)
   };
 
   root.querySelector("#ccw").onclick = () => {
-    sendCommand(send, CMD_BASIC,"L", 0, 0);
+    sendTwistCommand(Math.PI/2, spd)
   };
 
   root.querySelector("#cw").onclick = () => {
-    sendCommand(send, CMD_BASIC,"R", 0, 0);
+    sendTwistCommand(3*Math.PI/2, spd)
   };
 
   root.querySelector("#stop").onclick = () => {
-    sendCommand(send, CMD_STOP, 0, 0, 0);
+    sendStopCommand();
   };
 
-  return () => {};
+  return () => {
+    sendStopCommand();
+  };
 }

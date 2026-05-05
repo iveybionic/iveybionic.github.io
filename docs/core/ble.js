@@ -4,21 +4,33 @@ export const state = {
   device: null,
   msg_chr: null,
   bulk_chr: null,
-  _handler: null
+  _handler: null,
 };
 
 const listeners = new Set();
 
 export async function connect(req) {
+  const ping = (state.device?.gatt.connected == true);
+
   if (req == "y") {
-    state.device = await navigator.bluetooth.requestDevice({
-      filters: [{ namePrefix: 'Mimsy' }],
-      optionalServices: ['6e400001-b5a3-f393-e0a9-e50e24dcca9e']
-    });
+
+    if (ping) {
+      return true;
+    }
+
+    try {
+      state.device = await navigator.bluetooth.requestDevice({
+        filters: [{ namePrefix: 'Mimsy' }],
+        optionalServices: ['6e400001-b5a3-f393-e0a9-e50e24dcca9e']
+      });
+    } catch (NotFoundError) {
+      console.log("No device selected");
+      return false;
+    }
 
     if (!state.device) {
-      console.warn("No device selected");
-      return;
+      console.warn("Unable to connect to device");
+      return false;
     }
 
     const server = await state.device.gatt.connect();
@@ -27,6 +39,7 @@ export async function connect(req) {
     state.bulk_chr = await service.getCharacteristic('6e400003-b5a3-f393-e0a9-e50e24dcca9e');
     
     state.device.addEventListener('gattserverdisconnected', () => {
+      // TODO: clean up plotter objects so we start fresh on reconnect
       console.warn("BLE disconnected (event)");
       state.msg_chr = null;
       state.bulk_chr = null;
@@ -43,13 +56,15 @@ export async function connect(req) {
 
     state.bulk_chr.addEventListener('characteristicvaluechanged', state._handler);
     console.log("BLE stream connected");
+    return true;
   
   } else if (req == "n") {
+    state.disconnect_req_sent = true;
     state.device?.gatt.disconnect();
-    console.log("BLE disconnected");
-
+    return false;
   } else {
-    console.log("Invalid command to connection handler");
+    console.warn("Invalid command to connection handler");
+    return ping;
   }
 
 }
@@ -63,7 +78,11 @@ export function send(data) {
   if (!state.msg_chr) {
     return;
   }
-  return state.msg_chr.writeValue(data);
+  try {
+    return state.msg_chr.writeValue(data);
+  } catch (NetworkError) {
+    return false;
+  }
 }
 
 export function isConnected() {

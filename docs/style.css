@@ -1,9 +1,10 @@
 /* Hide short labels by default (desktop view) */
-.label-short {
+/* .label-short {
   display: none;
 }
-
+*/
 /* For small screens */
+/*
 @media (max-width: 600px) {
   .label-full {
     display: none;
@@ -15,5 +16,79 @@
   button {
     padding: 10px 14px;
     min-width: 50px;
+  }
+} 
+*/
+
+/* --- Base reset --- */
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, sans-serif;
+  background: #111;
+  color: #eee;
+}
+
+/* --- Navigation --- */
+nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px;
+  background: #222;
+  flex: 1 1 auto;
+}
+
+nav button, nav select {
+  min-height: 44px; /* mobile touch target */
+  font-size: 16px;
+  /* font-size: .8em; */
+  margin: 0.5em;
+  padding: 0.6em 1.2em;
+  border: none;
+  border-radius: 0.5em;
+}
+
+nav select {
+  color: black;
+}
+
+nav button.active {
+  background-color: #007aff;
+  color: white;
+}
+
+nav button.inactive {
+  background-color: #ddd;
+  color: black;
+}
+
+/* --- Layout --- */
+#layout {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 12px;
+  padding: 10px;
+}
+
+/* --- Panels --- */
+.panel {
+  background: #1a1a1a;
+  border-radius: 12px;
+  padding: 10px;
+}
+
+/* --- Desktop breakpoint --- */
+@media (max-width: 600px) {
+  #layout {
+    flex-direction: column;
+  }
+
+  #controllerPane, #plotterPane {
+    flex: 1; 
   }
 }

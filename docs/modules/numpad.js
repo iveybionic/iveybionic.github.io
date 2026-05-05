@@ -1,10 +1,6 @@
 // numpad.js
 
-import { send } from '../core/ble.js';
-import { sendCommand } from '../utils/protocol.js';
-
-const CMD_STOP = 'X';
-const CMD_NUMPAD = 'N';
+import { sendStopCommand, sendTwistCommand } from '../utils/protocol.js';
 
 const layout = [
   [7, 8, 9],
@@ -14,6 +10,22 @@ const layout = [
 ];
 
 // arrows for visual hint
+const spd = 80.0;
+const sqt2 = spd/Math.SQRT2;
+
+const cmd = {
+  8: [0, spd, "↑"], // 80% of full speed ahead
+  2: [0, -spd, "↓"],
+  4: [spd, 0, "←"], // pure rotation CCW
+  6: [-spd, 0, "→"], // pure rotation CW
+  7: [sqt2, sqt2, "↖"],
+  9: [-sqt2, sqt2, "↗"],
+  1: [sqt2, -sqt2, "↙"],
+  3: [-sqt2, -sqt2, "↘"],
+  5: [0, 0, "•"], // stop
+  0: [0, 0, "★"]
+};
+
 const arrows = {
   8: "↑",
   2: "↓",
@@ -30,13 +42,16 @@ const arrows = {
 export function mount(root) {
   root.innerHTML = `<div class="numpad"></div>`;
   const container = root.querySelector(".numpad");
+  container.style.display = "grid";
+  container.style.gap = "8px";
 
   function press(val) {
-    sendCommand(send, CMD_NUMPAD, val, 0, 0);
+    const [omega, vel, icon] = cmd[val]
+    sendTwistCommand(omega, vel);
   }
 
   function release() {
-    sendCommand(send, CMD_STOP, 0, 0, 0);
+    sendStopCommand();
   }
 
   layout.forEach(row => {
@@ -48,7 +63,9 @@ export function mount(root) {
       btn.textContent = `${val} ${arrows[val] || ""}`;
       btn.style.flex = "1";
       btn.style.margin = "4px";
-      btn.style.height = "60px";
+      btn.style.aspectRatio = "1";   // square buttons
+      btn.style.fontSize = "clamp(14px, 4vw, 20px)";
+      btn.style.maxWidth = "100px"
 
       btn.onmousedown = () => press(val);
     //   btn.onmouseup = release;
@@ -80,6 +97,7 @@ export function mount(root) {
 //   window.addEventListener("keyup", keyup);
 
   return () => {
+    sendStopCommand();
     window.removeEventListener("keydown", keydown);
     // window.removeEventListener("keyup", keyup);
   };
